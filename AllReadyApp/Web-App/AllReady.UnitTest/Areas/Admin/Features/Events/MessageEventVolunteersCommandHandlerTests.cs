@@ -2,12 +2,10 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using AllReady.Areas.Admin.Features.Events;
-using AllReady.Areas.Admin.Models;
+using AllReady.Areas.Admin.ViewModels.Event;
 using AllReady.Features.Notifications;
 using AllReady.Models;
-using AllReady.UnitTest.Features.Campaigns;
 using MediatR;
-using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
 
@@ -17,7 +15,6 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
     {
         protected override void LoadTestData()
         {
-            var context = ServiceProvider.GetService<AllReadyContext>();
             var htb = new Organization()
             {
                 Name = "Humanitarian Toolbox",
@@ -48,30 +45,39 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
             var username2 = $"blah@2.com";
 
             var user1 = new ApplicationUser { UserName = username1, Email = username1, EmailConfirmed = true };
-            context.Users.Add(user1);
+            Context.Users.Add(user1);
             var user2 = new ApplicationUser { UserName = username2, Email = username2, EmailConfirmed = true };
-            context.Users.Add(user2);
+            Context.Users.Add(user2);
 
-            htb.Campaigns.Add(firePrev);            
-            context.Organizations.Add(htb);
-            context.Events.Add(queenAnne);
-
-            var eventSignups = new List<EventSignup>
+            var task = new AllReadyTask
             {
-                new EventSignup { Event = queenAnne, User = user1, SignupDateTime = DateTime.UtcNow },
-                new EventSignup { Event = queenAnne, User = user2, SignupDateTime = DateTime.UtcNow }
+                Id = 1,
+                Name = "Task 1",
+                Event = queenAnne,
             };
 
-            context.EventSignup.AddRange(eventSignups);
-            context.SaveChanges();
+            var taskSignup = new TaskSignup
+            {
+                Id = 1,
+                User = user1,
+                Task = task
+            };
+
+            htb.Campaigns.Add(firePrev);            
+            Context.Organizations.Add(htb);
+            Context.Events.Add(queenAnne);
+            Context.Tasks.Add(task);
+            Context.TaskSignups.Add(taskSignup);
+
+            Context.SaveChanges();
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task SendMessageToAssignedVolunteers()
         {
             var command = new MessageEventVolunteersCommand
             {
-                Model = new MessageEventVolunteersModel
+                ViewModel = new MessageEventVolunteersViewModel
                 {
                     EventId = 1,
                     Message = "This is my message",
@@ -88,9 +94,8 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
                    notifyCommand.ViewModel != null &&
                    notifyCommand.ViewModel.EmailMessage == "This is my message" &&
                    notifyCommand.ViewModel.Subject == "This is my subject" &&
-                   notifyCommand.ViewModel.EmailRecipients.Count == 2 &&
-                   notifyCommand.ViewModel.EmailRecipients.Contains("blah@1.com") &&
-                   notifyCommand.ViewModel.EmailRecipients.Contains("blah@2.com")
+                   notifyCommand.ViewModel.EmailRecipients.Count == 1 &&
+                   notifyCommand.ViewModel.EmailRecipients.Contains("blah@1.com")
 
             )), Times.Once());
         }

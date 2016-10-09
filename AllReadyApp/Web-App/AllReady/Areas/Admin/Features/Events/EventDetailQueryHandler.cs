@@ -1,14 +1,17 @@
-﻿using AllReady.Areas.Admin.Models;
-using AllReady.Models;
+﻿using AllReady.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Threading.Tasks;
-using AllReady.Areas.Admin.Models.ItineraryModels;
+using AllReady.Areas.Admin.ViewModels.Event;
+using AllReady.Areas.Admin.ViewModels.Itinerary;
+using AllReady.Areas.Admin.ViewModels.Shared;
+using AllReady.Areas.Admin.ViewModels.Task;
+using TaskStatus = AllReady.Areas.Admin.Features.Tasks.TaskStatus;
 
 namespace AllReady.Areas.Admin.Features.Events
 {
-    public class EventDetailQueryHandler : IAsyncRequestHandler<EventDetailQuery, EventDetailModel>
+    public class EventDetailQueryHandler : IAsyncRequestHandler<EventDetailQuery, EventDetailViewModel>
     {
         private readonly AllReadyContext _context;
 
@@ -17,15 +20,15 @@ namespace AllReady.Areas.Admin.Features.Events
             _context = context;
         }
 
-        public async Task<EventDetailModel> Handle(EventDetailQuery message)
+        public async Task<EventDetailViewModel> Handle(EventDetailQuery message)
         {
-            EventDetailModel result = null;
+            EventDetailViewModel result = null;
 
             var campaignEvent = await GetEvent(message);
 
             if (campaignEvent != null)
             {
-                result = new EventDetailModel
+                result = new EventDetailViewModel
                 {
                     Id = campaignEvent.Id,
                     EventType = campaignEvent.EventType,
@@ -38,32 +41,28 @@ namespace AllReady.Areas.Admin.Features.Events
                     TimeZoneId = campaignEvent.Campaign.TimeZoneId,
                     StartDateTime = campaignEvent.StartDateTime,
                     EndDateTime = campaignEvent.EndDateTime,
-                    Volunteers = campaignEvent.UsersSignedUp.Select(u => u.User.UserName).ToList(),
-                    NumberOfVolunteersRequired = campaignEvent.NumberOfVolunteersRequired,
                     IsLimitVolunteers = campaignEvent.IsLimitVolunteers,
                     IsAllowWaitList = campaignEvent.IsAllowWaitList,
                     Location = campaignEvent.Location.ToEditModel(),
                     RequiredSkills = campaignEvent.RequiredSkills,
                     ImageUrl = campaignEvent.ImageUrl,
-                    Tasks = campaignEvent.Tasks.Select(t => new TaskSummaryModel
+                    Tasks = campaignEvent.Tasks.Select(t => new TaskSummaryViewModel
                     {
                         Id = t.Id,
                         Name = t.Name,
                         StartDateTime = t.StartDateTime,
                         EndDateTime = t.EndDateTime,
                         NumberOfVolunteersRequired = t.NumberOfVolunteersRequired,
-                        AssignedVolunteers = t.AssignedVolunteers?.Select(assignedVolunteer => new VolunteerModel
+                        AssignedVolunteers = t.AssignedVolunteers?.Select(assignedVolunteer => new VolunteerViewModel
                         {
                             UserId = assignedVolunteer.User.Id,
                             UserName = assignedVolunteer.User.UserName,
                             HasVolunteered = true,
                             Status = assignedVolunteer.Status,
-                            PreferredEmail = assignedVolunteer.PreferredEmail,
-                            PreferredPhoneNumber = assignedVolunteer.PreferredPhoneNumber,
                             AdditionalInfo = assignedVolunteer.AdditionalInfo
                         }).ToList()
                     }).OrderBy(t => t.StartDateTime).ThenBy(t => t.Name).ToList(),
-                    Itineraries = campaignEvent.Itineraries.Select(i => new ItineraryListModel
+                    Itineraries = campaignEvent.Itineraries.Select(i => new ItineraryListViewModel
                     {
                         Id = i.Id,
                         Name = i.Name,
@@ -75,6 +74,46 @@ namespace AllReady.Areas.Admin.Features.Events
 
                 result.NewItinerary.EventId = result.Id;
                 result.NewItinerary.Date = result.StartDateTime.DateTime;
+
+                var requests = await _context.Requests
+                    .AsNoTracking()
+                    .Where(rec => rec.EventId == message.EventId)
+                    .GroupBy(rec => rec.Status)
+                    .Select(g => new { Status = g.Key, Count = g.Count() })
+                    .ToListAsync()
+                    .ConfigureAwait(false);
+
+                foreach (var req in requests)
+                {
+                    switch (req.Status)
+                    {
+                        case RequestStatus.Completed:
+                            result.CompletedRequests = req.Count;
+                            break;
+                        case RequestStatus.Assigned:
+                            result.AssignedRequests = req.Count;
+                            break;
+                        case RequestStatus.Canceled:
+                            result.CanceledRequests = req.Count;
+                            break;
+                        case RequestStatus.Unassigned:
+                            result.UnassignedRequests = req.Count;
+                            break;
+                    }
+                }
+
+                result.TotalRequests = result.CompletedRequests + result.CanceledRequests + result.AssignedRequests +
+                                       result.UnassignedRequests;
+
+                result.VolunteersRequired = await _context.Tasks.Where(rec => rec.EventId == result.Id).SumAsync(rec => rec.NumberOfVolunteersRequired);
+
+                var acceptedVolunteers = await _context.Tasks
+                    .AsNoTracking()
+                    .Include(rec => rec.AssignedVolunteers)
+                    .Where(rec => rec.EventId == result.Id)
+                    .ToListAsync();
+
+                result.AcceptedVolunteers = acceptedVolunteers.Sum(x => x.AssignedVolunteers.Where(v => v.Status == TaskStatus.Accepted.ToString()).Count());
             }
 
             return result;
@@ -88,7 +127,6 @@ namespace AllReady.Areas.Admin.Features.Events
                 .Include(a => a.Tasks).ThenInclude(t => t.AssignedVolunteers).ThenInclude(av => av.User)
                 .Include(a => a.RequiredSkills).ThenInclude(s => s.Skill).ThenInclude(s => s.ParentSkill)
                 .Include(a => a.Location)
-                .Include(a => a.UsersSignedUp).ThenInclude(a => a.User)
                 .Include(a => a.Itineraries).ThenInclude(a => a.TeamMembers)
                 .Include(a => a.Itineraries).ThenInclude(a => a.Requests)
                 .SingleOrDefaultAsync(a => a.Id == message.EventId)

@@ -67,45 +67,9 @@
         self.enrolled = ko.observable(modelStuff.isVolunteeredForEvent);
         self.errorUnenrolling = ko.observable(false);
 
-        self.signupForEvent = function () {
-            hideAlert();
-            var vm = new SignupViewModel(signupModel, self.unassociatedSkills, modelStuff.eventTitle);
-            vm.modal = HTBox.showModal({ viewModel: vm, modalId: "VolunteerModal" })
-                .onClose(eventSignupSuccess);
-        };
-
-        function eventSignupSuccess(signUpViewModel) {
-            self.eventSkillsWithIsUser().forEach(function(skill) {
-                if (signUpViewModel.AddSkillIds().indexOf(skill.Id) >= 0) {
-                    skill.IsUserSkill(true)
-                }
-            });
-            self.enrolled(true);
-            showalert("<strong>Thanks for volunteering! Your request has been processed and one of the event coordinators will be in contact with you soon.</strong>", "alert-success", 30);
-        }
-
-        self.unenrollFromEvent = function (eventId) {
-            hideAlert();
-            self.errorUnenrolling(false);
-            $("#enrollUnenrollSpinner").show();
-            $.ajax({
-                type: "DELETE",
-                url: '/api/event/' + eventId + '/signup',
-                contentType: "application/json"
-            }).then(function(data) {
-                self.enrolled(false);
-                $("#enrollUnenrollSpinner").hide();
-                showalert("<strong>Thanks for your interest. Your request has been processed and you are no longer signed up for this event. We hope to see you soon!</strong>", "alert-success", 30);
-
-            }).fail(function(fail) {
-                self.errorUnenrolling(true);
-                console.log(fail);
-            });
-        }
-
         self.signupForTask = function (task) {
             hideAlert();
-            var vm = new SignupViewModel(signupModel, task.unassociatedSkills, task.Name, true, task);
+            var vm = new SignupViewModel(signupModel, task.unassociatedSkills, task.Name, task);
             vm.modal = HTBox.showModal({ viewModel: vm, modalId: "VolunteerModal" })
                 .onClose(taskSignupSuccess);
         };
@@ -125,7 +89,7 @@
             tasks.forEach(function(task) {
                 task.skillsWithIsUser().forEach(function(skill) {
                     if (newSkillIds.indexOf(skill.Id) >= 0) {
-                        skill.IsUserSkill(true)
+                        skill.IsUserSkill(true);
                     }
                 });
             });
@@ -153,7 +117,6 @@
                 console.log(fail);
             });
         }
-
 
         self.confirmUnenrollFromTask = function (task) {
             hideAlert();
@@ -231,7 +194,7 @@
         }
     };
 
-    SignupViewModel = function (signupModelSeed, unassociatedSkills, title, isTaskSignup, task) {
+    SignupViewModel = function (signupModelSeed, unassociatedSkills, title, task) {
         var self = this;
         ko.mapping.fromJS(signupModelSeed, {}, self);
         self.unassociatedSkills = unassociatedSkills;
@@ -243,16 +206,6 @@
         }
 
         self.Heading = "Volunteer for " + title;
-
-        self.PreferredEmail
-            .isRequired()
-            .validateEmail()
-            .notifyChangeFromInitialValue();
-
-        self.PreferredPhoneNumber
-           .isRequired()
-           .validatePhoneNumber()
-           .notifyChangeFromInitialValue();
 
         self.isValid = ko.computed(function () {
             var allValidatablesAreValid = true;
@@ -275,16 +228,14 @@
             dataToSend.__RequestVerificationToken = $('input[name=__RequestVerificationToken]').val();
             $.ajax({
                 type: "POST",
-                url: isTaskSignup ? '/api/task/signup' : '/api/event/signup',
+                url: "/api/task/signup",
                 data: dataToSend,
                 contentType: "application/x-www-form-urlencoded"
             }).done(function (result) {
                 self.isSubmitting(false);
                 switch (result.isSuccess) {
                     case true:
-                        if (isTaskSignup) {
-                            self.UpdatedTask = result.task;
-                        }
+                        self.UpdatedTask = result.task;
                         self.modal.close(self);
                         break;
                     case false:
@@ -313,7 +264,6 @@
             clearTimeout(alertVm.timer);
         }
     }
-
  
    CannotCompleteViewModel = function (task) {
         var self = this;

@@ -1,11 +1,10 @@
 ﻿using AllReady.Controllers;
 using AllReady.Features.Campaigns;
-using AllReady.ViewModels;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using System.Collections.Generic;
 using System.Threading.Tasks;
+using AllReady.Features.Home;
 using Xunit;
 
 namespace AllReady.UnitTest.Controllers
@@ -13,14 +12,14 @@ namespace AllReady.UnitTest.Controllers
     public class HomeControllerTests
     {
         [Fact]
-        public async Task IndexSendsCampaignQuery()
+        public async Task IndexSendsActiveOrUpcomingCampaignsQuery()
         {
             var mockMediator = new Mock<IMediator>();
 
             var sut = new HomeController(mockMediator.Object);
-            var result = (ViewResult)await sut.Index();
+            await sut.Index();
 
-            mockMediator.Verify(x => x.Send(It.IsAny<CampaignQuery>()), Times.Once());
+            mockMediator.Verify(x => x.SendAsync(It.IsAny<ActiveOrUpcomingCampaignsQuery>()), Times.Once());
         }
 
         [Fact]
@@ -29,9 +28,9 @@ namespace AllReady.UnitTest.Controllers
             var mockMediator = new Mock<IMediator>();
 
             var sut = new HomeController(mockMediator.Object);
-            var result = (ViewResult)await sut.Index();
+            await sut.Index();
 
-            mockMediator.Verify(x => x.SendAsync(It.IsAny<FeaturedCampaignQueryAsync>()), Times.Once());
+            mockMediator.Verify(x => x.SendAsync(It.IsAny<FeaturedCampaignQuery>()), Times.Once());
         }
 
         [Fact]
@@ -42,7 +41,7 @@ namespace AllReady.UnitTest.Controllers
             var sut = new HomeController(mockMediator.Object);
             var result = (ViewResult)await sut.Index();
 
-            Assert.NotNull(result);       
+            Assert.NotNull(result);
         }
 
         [Fact]

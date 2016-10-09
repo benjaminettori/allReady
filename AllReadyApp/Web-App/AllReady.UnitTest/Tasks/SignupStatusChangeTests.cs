@@ -2,7 +2,6 @@
 using AllReady.Features.Notifications;
 using AllReady.Models;
 using MediatR;
-using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using System;
 using System.Collections.Generic;
@@ -16,7 +15,6 @@ namespace AllReady.UnitTest.Tasks
     {
         protected override void LoadTestData()
         {
-            var context = ServiceProvider.GetService<AllReadyContext>();
             var htb = new Organization()
             {
                 Name = "Humanitarian Toolbox",
@@ -46,18 +44,11 @@ namespace AllReady.UnitTest.Tasks
             var username1 = $"blah@1.com";
 
             var user1 = new ApplicationUser { UserName = username1, Email = username1, EmailConfirmed = true };
-            context.Users.Add(user1);
+            Context.Users.Add(user1);
 
             htb.Campaigns.Add(firePrev);
-            context.Organizations.Add(htb);
-            context.Events.Add(queenAnne);
-
-            var eventSignups = new List<EventSignup>
-            {
-                new EventSignup { Event = queenAnne, User = user1, SignupDateTime = DateTime.UtcNow }
-            };
-
-            context.EventSignup.AddRange(eventSignups);
+            Context.Organizations.Add(htb);
+            Context.Events.Add(queenAnne);
 
             var newTask = new AllReadyTask()
             {
@@ -75,25 +66,25 @@ namespace AllReady.UnitTest.Tasks
                 User = user1
             });
 
-            context.Tasks.Add(newTask);
+            Context.Tasks.Add(newTask);
 
-            context.SaveChanges();
+            Context.SaveChanges();
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerAcceptsTask()
         {
             var mediator = new Mock<IMediator>();
 
             var task = Context.Tasks.First();
             var user = Context.Users.First();
-            var command = new TaskStatusChangeCommandAsync
+            var command = new TaskStatusChangeCommand
             {
                 TaskId = task.Id,
                 UserId = user.Id,
                 TaskStatus = AllReady.Areas.Admin.Features.Tasks.TaskStatus.Accepted
             };
-            var handler = new TaskStatusChangeHandlerAsync(Context, mediator.Object);
+            var handler = new TaskStatusChangeHandler(Context, mediator.Object);
             await handler.Handle(command);
 
             var taskSignup = Context.TaskSignups.First();

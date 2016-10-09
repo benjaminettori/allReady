@@ -1,7 +1,6 @@
 using System;
 using System.Threading.Tasks;
 using AllReady.Areas.Admin.Features.Campaigns;
-using AllReady.Areas.Admin.Models;
 using AllReady.Extensions;
 using AllReady.Models;
 using AllReady.Security;
@@ -10,7 +9,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using AllReady.Areas.Admin.Models.Validators;
+using AllReady.Areas.Admin.ViewModels.Campaign;
 
 namespace AllReady.Areas.Admin.Controllers
 {
@@ -28,18 +27,15 @@ namespace AllReady.Areas.Admin.Controllers
         }
 
         // GET: Campaign
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            var query = new CampaignListQuery();
-
+            var query = new IndexQuery();
             if (User.IsUserType(UserType.OrgAdmin))
             {
                 query.OrganizationId = User.GetOrganizationId();
             }
 
-            var campaigns = _mediator.Send(query);
-
-            return View(campaigns);
+            return View(await _mediator.SendAsync(query));
         }
 
         public async Task<IActionResult> Details(int id)
@@ -61,7 +57,7 @@ namespace AllReady.Areas.Admin.Controllers
         // GET: Campaign/Create
         public IActionResult Create()
         {
-            return View("Edit", new CampaignSummaryModel
+            return View("Edit", new CampaignSummaryViewModel
             {
                 StartDate = DateTime.Now,
                 EndDate = DateTime.Now.AddMonths(1)
@@ -71,7 +67,7 @@ namespace AllReady.Areas.Admin.Controllers
         // GET: Campaign/Edit/5
         public async Task<IActionResult> Edit(int id)
         {
-            var viewModel = await _mediator.SendAsync(new CampaignSummaryQuery { CampaignId = id }); //not covered
+            var viewModel = await _mediator.SendAsync(new CampaignSummaryQuery { CampaignId = id });
             if (viewModel == null)
             {
                 return NotFound();
@@ -88,7 +84,7 @@ namespace AllReady.Areas.Admin.Controllers
         // POST: Campaign/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(CampaignSummaryModel campaign, IFormFile fileUpload)
+        public async Task<IActionResult> Edit(CampaignSummaryViewModel campaign, IFormFile fileUpload)
         {
             if (campaign == null)
             {
@@ -111,7 +107,16 @@ namespace AllReady.Areas.Admin.Controllers
                 {
                     if (fileUpload.IsAcceptableImageContentType())
                     {
-                        campaign.ImageUrl = await _imageService.UploadCampaignImageAsync(campaign.OrganizationId, campaign.Id, fileUpload);
+                        var existingImageUrl = campaign.ImageUrl;
+                        var newImageUrl = await _imageService.UploadCampaignImageAsync(campaign.OrganizationId, campaign.Id, fileUpload);
+                        if (!string.IsNullOrEmpty(newImageUrl))
+                        {
+                            campaign.ImageUrl = newImageUrl;
+                            if (existingImageUrl != null)
+                            {
+                                await _imageService.DeleteImageAsync(existingImageUrl);
+                            }
+                        }
                     }
                     else
                     {
@@ -122,7 +127,7 @@ namespace AllReady.Areas.Admin.Controllers
 
                 var id = await _mediator.SendAsync(new EditCampaignCommand { Campaign = campaign });
 
-                return RedirectToAction(nameof(Details), new { area = "Admin", id = id });
+                return RedirectToAction(nameof(Details), new { area = "Admin", id });
             }
 
             return View(campaign);
@@ -131,7 +136,7 @@ namespace AllReady.Areas.Admin.Controllers
         // GET: Campaign/Delete/5
         public async Task<IActionResult> Delete(int id)
         {
-            var viewModel = await _mediator.SendAsync(new CampaignSummaryQuery { CampaignId = id });
+            var viewModel = await _mediator.SendAsync(new DeleteViewModelQuery { CampaignId = id });
             if (viewModel == null)
             {
                 return NotFound();
@@ -142,21 +147,23 @@ namespace AllReady.Areas.Admin.Controllers
                 return Unauthorized();
             }
 
+            viewModel.Title = $"Delete campaign {viewModel.Name}";
+            viewModel.UserIsOrgAdmin = true;
+
             return View(viewModel);
         }
 
         // POST: Campaign/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(int id)
+        public async Task<IActionResult> DeleteConfirmed(DeleteViewModel viewModel)
         {
-            var viewModel = await _mediator.SendAsync(new CampaignSummaryQuery { CampaignId = id });
-            if (!User.IsOrganizationAdmin(viewModel.OrganizationId))
+            if (!viewModel.UserIsOrgAdmin)
             {
                 return Unauthorized();
             }
 
-            await _mediator.SendAsync(new DeleteCampaignCommand { CampaignId = id });
+            await _mediator.SendAsync(new DeleteCampaignCommand { CampaignId = viewModel.Id });
 
             return RedirectToAction(nameof(Index), new { area = "Admin" });
         }
@@ -172,7 +179,7 @@ namespace AllReady.Areas.Admin.Controllers
 
             await _mediator.SendAsync(new LockUnlockCampaignCommand { CampaignId = id });
 
-            return RedirectToAction(nameof(Details), new { area = "Admin", id = id });
+            return RedirectToAction(nameof(Details), new { area = "Admin", id });
         }
     }
 }

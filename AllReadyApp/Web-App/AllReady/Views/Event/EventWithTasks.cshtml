@@ -1,5 +1,4 @@
-﻿@using System.Security.Claims
-@using AllReady.Security
+﻿@using AllReady.Security
 @model AllReady.ViewModels.Event.EventViewModel
 
 @{
@@ -25,7 +24,7 @@
                 }
                 <div class="@(string.IsNullOrEmpty(Model.ImageUrl) ? "col-sm-12" : "col-sm-10" )">
                     <h2>@Model.Title</h2>
-                    @if (Model.HasHeadline)
+                    @if (!string.IsNullOrEmpty(Model.Headline))
                     {
                         <h3>@Model.Headline</h3>
                     }
@@ -82,7 +81,7 @@
             </div>
 
             @*Task Lists*@
-            @if (User.IsSignedIn())
+            @if (User.Identity.IsAuthenticated)
             {
                 @*User Tasks*@
                 <div class="row">
@@ -284,10 +283,9 @@
     </div>
 </div>
 
-@if (User.IsSignedIn())
+@if (User.Identity.IsAuthenticated)
 {
     @Html.Partial("_VolunteerModal", Model)
-
 
     <!-- CannotComplete Modal -->
     <div class="modal fade" id="CannotCompleteModal" tabindex="-1" role="dialog">

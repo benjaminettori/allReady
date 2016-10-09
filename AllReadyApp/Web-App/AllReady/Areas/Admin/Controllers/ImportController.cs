@@ -1,5 +1,4 @@
 ﻿using AllReady.Areas.Admin.Features.Requests;
-using AllReady.Areas.Admin.Models.RequestModels;
 using AllReady.Models;
 using CsvHelper;
 using MediatR;
@@ -9,12 +8,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System.IO;
 using System.Linq;
+using AllReady.Areas.Admin.ViewModels.Request;
 
 namespace AllReady.Areas.Admin.Controllers
 {
-
-
-
     [Area("Admin")]
     [Authorize("SiteAdmin")]
     public class ImportController : Controller
@@ -37,6 +34,15 @@ namespace AllReady.Areas.Admin.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult Index(IFormFile file)
         {
+            // todo: - proper view model
+            //       - more complete result type/info
+
+            if (file == null)
+            {
+                _logger.LogInformation($"User {User.Identity.Name} attempted a file upload without specifying a file.");
+                RedirectToAction("Index");
+            }
+
             using (var stream = file.OpenReadStream())
             {
                 using (var reader = new StreamReader(stream))
@@ -46,15 +52,12 @@ namespace AllReady.Areas.Admin.Controllers
                     csvReader.Configuration.RegisterClassMap<RedCrossRequestMap>();
                     var requests = csvReader.GetRecords<Request>().ToList();
 
-                    var errors = _mediator.Send(new AddRequestsCommand { Requests = requests });
+                    var errors = _mediator.Send(new ImportRequestsCommand { Requests = requests });
 
                 }
             }
 
-            // todo: - add error handling logic/results view
-            //       - proper view model
-            //       - more complete result type/info
-
+            _logger.LogDebug($"{User.Identity.Name} imported file {file.Name}");
             ViewBag.ImportSuccess = true;
 
             return View();

@@ -10,8 +10,8 @@ namespace AllReady.Areas.Admin.Features.Events
 {
     public class MessageEventVolunteersCommandHandler : AsyncRequestHandler<MessageEventVolunteersCommand>
     {
-        private AllReadyContext _context;
-        private IMediator _mediator;
+        private readonly AllReadyContext _context;
+        private readonly IMediator _mediator;
 
         public MessageEventVolunteersCommandHandler(AllReadyContext context, IMediator mediator)
         {
@@ -22,10 +22,10 @@ namespace AllReady.Areas.Admin.Features.Events
         protected override async Task HandleCore(MessageEventVolunteersCommand message)
         {
             var users =
-                _context.EventSignup.AsNoTracking()
+                _context.TaskSignups.AsNoTracking()
                 .Include(a => a.User)
-                .Where(a => a.Event.Id == message.Model.EventId).ToList();
-
+                .Include(a => a.Task)
+                .Where(a => a.Task.EventId == message.ViewModel.EventId).ToList();
 
             // send all notifications to the queue
             var smsRecipients = new List<string>();
@@ -41,12 +41,12 @@ namespace AllReady.Areas.Admin.Features.Events
                 // todo: what about non-English volunteers?
                 ViewModel = new NotifyVolunteersViewModel
                 {
-                    SmsMessage = message.Model.Message,
+                    SmsMessage = message.ViewModel.Message,
                     SmsRecipients = smsRecipients,
-                    EmailMessage = message.Model.Message,
-                    HtmlMessage = message.Model.Message,
+                    EmailMessage = message.ViewModel.Message,
+                    HtmlMessage = message.ViewModel.Message,
                     EmailRecipients = emailRecipients,
-                    Subject = message.Model.Subject
+                    Subject = message.ViewModel.Subject
                 }
             };
 

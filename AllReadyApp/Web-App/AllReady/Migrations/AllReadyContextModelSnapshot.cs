@@ -25,7 +25,7 @@ namespace AllReady.Migrations
 
                     b.Property<DateTimeOffset>("EndDateTime");
 
-                    b.Property<int?>("EventId");
+                    b.Property<int>("EventId");
 
                     b.Property<bool>("IsAllowWaitList");
 
@@ -283,8 +283,6 @@ namespace AllReady.Migrations
                     b.Property<string>("Name")
                         .IsRequired();
 
-                    b.Property<int>("NumberOfVolunteersRequired");
-
                     b.Property<string>("OrganizerId");
 
                     b.Property<DateTimeOffset>("StartDateTime");
@@ -298,34 +296,6 @@ namespace AllReady.Migrations
                     b.HasIndex("OrganizerId");
 
                     b.ToTable("Event");
-                });
-
-            modelBuilder.Entity("AllReady.Models.EventSignup", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<string>("AdditionalInfo");
-
-                    b.Property<DateTime?>("CheckinDateTime");
-
-                    b.Property<int?>("EventId");
-
-                    b.Property<string>("PreferredEmail");
-
-                    b.Property<string>("PreferredPhoneNumber");
-
-                    b.Property<DateTime>("SignupDateTime");
-
-                    b.Property<string>("UserId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("EventSignup");
                 });
 
             modelBuilder.Entity("AllReady.Models.EventSkill", b =>
@@ -577,10 +547,6 @@ namespace AllReady.Migrations
 
                     b.Property<int?>("ItineraryId");
 
-                    b.Property<string>("PreferredEmail");
-
-                    b.Property<string>("PreferredPhoneNumber");
-
                     b.Property<string>("Status");
 
                     b.Property<DateTime>("StatusDateTimeUtc");
@@ -820,18 +786,6 @@ namespace AllReady.Migrations
                     b.HasOne("AllReady.Models.ApplicationUser", "Organizer")
                         .WithMany()
                         .HasForeignKey("OrganizerId");
-                });
-
-            modelBuilder.Entity("AllReady.Models.EventSignup", b =>
-                {
-                    b.HasOne("AllReady.Models.Event", "Event")
-                        .WithMany("UsersSignedUp")
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("AllReady.Models.ApplicationUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId");
                 });
 
             modelBuilder.Entity("AllReady.Models.EventSkill", b =>

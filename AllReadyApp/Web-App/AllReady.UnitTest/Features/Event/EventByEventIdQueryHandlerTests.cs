@@ -1,33 +1,38 @@
-﻿using AllReady.Features.Event;
-using AllReady.Models;
-using Moq;
+﻿using AllReady.Models;
 using Xunit;
+using System.Threading.Tasks;
+using AllReady.Features.Events;
 
 namespace AllReady.UnitTest.Features.Event
 {
-    public class EventByEventIdQueryHandlerTests
+    using Event = Models.Event;
+
+    public class EventByEventIdQueryHandlerTests : InMemoryContextTest
     {
         [Fact]
-        public void CallsGetEventWithTheCorrectEventId()
+        public async Task CallsGetEventWithTheCorrectEventId()
         {
-            var message = new EventByIdQuery { EventId = 1 };
-            var dataAccess = new Mock<IAllReadyDataAccess>();
+            var options = CreateNewContextOptions();
 
-            var sut = new EventByIdQueryHandler(dataAccess.Object);
-            sut.Handle(message);
+            const int eventId = 1;
+            var message = new EventByEventIdQuery { EventId = eventId };
 
-            dataAccess.Verify(x => x.GetEvent(message.EventId), Times.Once());
-        }
+            using (var context = new AllReadyContext(options))
+            {
+                context.Events.Add(new Event
+                {
+                    Id = eventId
+                });
+                await context.SaveChangesAsync();
+            }
 
-        [Fact]
-        public void ReturnsCorrectType()
-        {
-            var dataAccess = new Mock<IAllReadyDataAccess>();
-            dataAccess.Setup(x => x.GetEvent(It.IsAny<int>())).Returns(new Models.Event());
-            var sut = new EventByIdQueryHandler(dataAccess.Object);
-            var result = sut.Handle(new EventByIdQuery());
+            using (var context = new AllReadyContext(options))
+            {
+                var sut = new EventByEventIdQueryHandler(context);
+                var e = await sut.Handle(message);
 
-            Assert.IsType<Models.Event>(result);
+                Assert.Equal(e.Id, eventId);
+            }
         }
     }
 }

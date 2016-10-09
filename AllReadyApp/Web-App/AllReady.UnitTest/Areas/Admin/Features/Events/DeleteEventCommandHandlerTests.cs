@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using AllReady.Areas.Admin.Features.Events;
 using AllReady.Models;
-using AllReady.UnitTest.Features.Campaigns;
-using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace AllReady.UnitTest.Areas.Admin.Features.Events
@@ -13,8 +12,6 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
     {
         protected override void LoadTestData()
         {
-            var context = ServiceProvider.GetService<AllReadyContext>();
-
             var htb = new Organization
             {
                 Name = "Humanitarian Toolbox",
@@ -42,39 +39,30 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
                 RequiredSkills = new List<EventSkill>()
             };
 
-            context.Organizations.Add(htb);
-            context.Events.Add(queenAnne);
-            context.SaveChanges();
+            Context.Organizations.Add(htb);
+            Context.Events.Add(queenAnne);
+            Context.SaveChanges();
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
-        public void ExistingEvent()
+        [Fact]
+        public async Task ExistingEvent()
         {
-            var context = ServiceProvider.GetService<AllReadyContext>();
             var command = new DeleteEventCommand { EventId = 1 };
-            var handler = new DeleteEventCommandHandler(context);
-            handler.Handle(command);
+            var handler = new DeleteEventCommandHandler(Context);
+            await handler.Handle(command);
 
-            var data = context.Events.Count(_ => _.Id == 1);
+            var data = Context.Events.Count(_ => _.Id == 1);
             Assert.Equal(0, data);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
-        public void EventDoesNotExist()
-        {
-            var context = ServiceProvider.GetService<AllReadyContext>();
-            var command = new DeleteEventCommand { EventId = 0 };
-            var handler = new DeleteEventCommandHandler(context);
-            handler.Handle(command);
-            //TODO: this test needs to be completed to actually test something
-        }
-
-        [Fact(Skip = "RTM Broken Tests")]
-        public void EventIsDeleted()
+        [Fact]
+        public async Task EventIsDeleted()
         {
             const int eventId = 1;
+
             var sut = new DeleteEventCommandHandler(Context);
-            sut.Handle(new DeleteEventCommand { EventId = eventId });
+            await sut.Handle(new DeleteEventCommand { EventId = eventId });
+
             Assert.False(Context.Events.Any(t => t.Id == eventId));
         }
     }

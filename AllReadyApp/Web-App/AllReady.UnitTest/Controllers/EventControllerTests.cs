@@ -1,198 +1,148 @@
-﻿using System.Threading.Tasks;
+﻿using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using AllReady.Controllers;
+using AllReady.Features.Events;
+using AllReady.Models;
+using AllReady.UnitTest.Extensions;
+using AllReady.ViewModels.Event;
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Moq;
 using Xunit;
 
 namespace AllReady.UnitTest.Controllers
 {
     public class EventControllerTests
     {
-        //delete this line when all unit tests using it have been completed
-        private readonly Task taskFromResultZero = Task.FromResult(0);
-
-        [Fact(Skip = "NotImplemented")]
-        public void GetMyEventsSendsGetMyEventsQueryWithTheCorrectUserId()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void GetMyEventsReturnsTheCorrectViewAndViewModel()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void GetMyEventsHasRouteAttributeWithTheCorrectRoute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void GetMyEventsHasAuthorizeAttribute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void GetMyTasksSendsGetMyTasksQueryWithTheCorrectData()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void GetMyTasksReturnsCorrectJsonView()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void GetMyTasksHasRouteAttributeWithCorrectRoute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void GetMyTasksHasAuthorizeAttribute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public async Task UpdateMyTasksSendsUpdateMyTasksCommandAsyncWithCorrectData()
-        {
-            //delete this line when starting work on this unit test
-            await taskFromResultZero;
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public async Task UpdateMyTasksReturnsJsonResultWithTheCorrectData()
-        {
-            //delete this line when starting work on this unit test
-            await taskFromResultZero;
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void UpdateMyTasksHasHttpPostAttribute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void UpdateMyTasksHasAuthorizeAttribute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void UpdateMyTasksHasValidateAntiForgeryTokenAttribute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void UpdateMyTasksHasRouteAttributeWithCorrectRoute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
+        [Fact]
         public void IndexReturnsTheCorrectView()
         {
+            var sut = EventControllerBuilder.Instance().Build();
+
+            var result = sut.Index();
+
+            Assert.IsType<ViewResult>(result);
         }
 
-        [Fact(Skip = "NotImplemented")]
+        [Fact]
         public void IndexHasHttpGetAttribute()
         {
+            var sut = EventControllerBuilder.Instance().Build();
+
+            var attribute = sut
+                            .GetAttributesOn(x => x.Index())
+                            .OfType<HttpGetAttribute>().FirstOrDefault();
+
+            Assert.NotNull(attribute);
         }
 
-        [Fact(Skip = "NotImplemented")]
-        public void ShowEventSendsShowEventQueryWithCorrectData()
+        [Fact]
+        public async Task ShowEventSendsShowEventQueryWithCorrectData()
         {
+            const string userId = "1";
+            const int eventId = 1;
 
+            var mediator = new Mock<IMediator>();
+
+            var userManager = MockHelper.CreateUserManagerMock();
+            userManager.Setup(x => x.GetUserAsync(It.IsAny<ClaimsPrincipal>())).ReturnsAsync(new ApplicationUser { Id = userId });
+            
+            var sut = new EventController(mediator.Object, userManager.Object);
+            sut.SetFakeUser(userId);
+            await sut.ShowEvent(eventId);
+
+            mediator.Verify(x => x.SendAsync(It.Is<ShowEventQuery>(y => y.EventId == eventId)), Times.Once);
         }
 
-        [Fact(Skip = "NotImplemented")]
-        public void ShowEventReturnsHttpNotFoundResultWhenViewModelIsNull()
+        [Fact]
+        public async Task ShowEventReturnsHttpNotFoundResultWhenViewModelIsNull()
         {
+            const string userId = "1";
+
+            var mediator = new Mock<IMediator>();
+            mediator.Setup(x => x.SendAsync(It.IsAny<ShowEventQuery>())).ReturnsAsync(null);
+
+            var userManager = MockHelper.CreateUserManagerMock();
+            userManager.Setup(x => x.GetUserAsync(It.IsAny<ClaimsPrincipal>())).ReturnsAsync(new ApplicationUser { Id = userId });
+
+            var sut = new EventController(mediator.Object, userManager.Object);
+            sut.SetFakeUser(userId);
+
+            var result = await sut.ShowEvent(It.IsAny<int>());
+
+            Assert.IsType<NotFoundResult>(result);
         }
 
-        [Fact(Skip = "NotImplemented")]
-        public void ShowEventReturnsEventWithTasksViewWithCorrrectViewModelWhenViewModelIsNotNull()
+        [Fact]
+        public async Task ShowEventReturnsCorrrectViewAndViewModelWhenViewModelIsNotNull()
         {
+            const string userId = "1";
+
+            var eventViewModel = new EventViewModel();
+
+            var mediator = new Mock<IMediator>();
+            mediator.Setup(x => x.SendAsync(It.IsAny<ShowEventQuery>())).ReturnsAsync(eventViewModel);
+
+            var userManager = MockHelper.CreateUserManagerMock();
+            userManager.Setup(x => x.GetUserAsync(It.IsAny<ClaimsPrincipal>())).ReturnsAsync(new ApplicationUser { Id = userId });
+
+            var sut = new EventController(mediator.Object, userManager.Object);
+            sut.SetFakeUser(userId);
+
+            var result = await sut.ShowEvent(It.IsAny<int>()) as ViewResult;
+
+            Assert.Equal(eventViewModel, result.Model);
+            Assert.Equal("EventWithTasks", result.ViewName);
         }
 
-        [Fact(Skip = "NotImplemented")]
+        [Fact]
         public void ShowEventHasRouteAttributeWithCorrectRoute()
         {
+            var sut = EventControllerBuilder.Instance().Build();
+
+            var attribute = sut
+                            .GetAttributesOn(x => x.ShowEvent(0))
+                            .OfType<RouteAttribute>().FirstOrDefault();
+
+            Assert.NotNull(attribute);
+            Assert.Equal("[controller]/{id}/", attribute.Template);
         }
 
-        [Fact(Skip = "NotImplemented")]
+        [Fact]
         public void ShowEventHasAllowAnonymousAttribute()
         {
+            var sut = EventControllerBuilder.Instance().Build();
+
+            var attribute = sut
+                            .GetAttributesOn(x => x.ShowEvent(0))
+                            .OfType<AllowAnonymousAttribute>().FirstOrDefault();
+
+            Assert.NotNull(attribute);
         }
 
-        [Fact(Skip = "NotImplemented")]
-        public async Task SignupReturnsBadRequestResultWhenViewModelIsNull()
+        private class EventControllerBuilder
         {
-            //delete this line when starting work on this unit test
-            await taskFromResultZero;
-        }
+            private readonly IMediator _mediator;
+            private static EventControllerBuilder _builder;
+            private EventControllerBuilder()
+            {
+                MediatorMock = new Mock<IMediator>();
+                _mediator = null;
+            }
 
-        [Fact(Skip = "NotImplemented")]
-        public async Task SignupSendsAsyncEventSignupCommandWithCorrrectDataWhenViewModelIsNotNull()
-        {
-            //delete this line when starting work on this unit test
-            await taskFromResultZero;
-        }
+            public static EventControllerBuilder Instance()
+            {
+                return _builder ?? (_builder = new EventControllerBuilder());
+            }
 
-        [Fact(Skip = "NotImplemented")]
-        public async Task SignupRedirectsToCorrectActionWithCorrectRouteValuesWhenViewModelIsNotNull()
-        {
-            //delete this line when starting work on this unit test
-            await taskFromResultZero;
-        }
+            public EventController Build()
+            {
+                return new EventController(_mediator, null);
+            }
 
-        [Fact(Skip = "NotImplemented")]
-        public void SignupHasHttpPostAttribute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void SignupHasAuthorizeAttribute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void SignupHasValidateAntiForgeryTokenAttribute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void SignupHasRouteAttributeWithCorrectRoute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public async Task ChangeStatusReturnsBadRequestResultWhenUserIdIsNull()
-        {
-            //delete this line when starting work on this unit test
-            await taskFromResultZero;
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public async Task ChangeStatusSendsTaskStatusChangeCommandAsyncWithCorrectData()
-        {
-            //delete this line when starting work on this unit test
-            await taskFromResultZero;
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public async Task ChangeStatusRedirectsToCorrectActionWithCorrectRouteValues()
-        {
-            //delete this line when starting work on this unit test
-            await taskFromResultZero;
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void ChangeStatusHasHttpGetAttribute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void ChangeStatusHasRouteAttributeWithCorrectRoute()
-        {
-        }
-
-        [Fact(Skip = "NotImplemented")]
-        public void ChangeStatusHasAuthorizeAttribute()
-        {
+            private Mock<IMediator> MediatorMock { get; }
         }
     }
 }

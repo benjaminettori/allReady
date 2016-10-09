@@ -17,17 +17,16 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
     public class TaskStatusChangeHandlerTests : InMemoryContextTest
     {
         private readonly Mock<IMediator> mediator;
-        private readonly TaskStatusChangeHandlerAsync handler;
+        private readonly TaskStatusChangeHandler handler;
 
         public TaskStatusChangeHandlerTests()
         {
             mediator = new Mock<IMediator>();
-            handler = new TaskStatusChangeHandlerAsync(Context, mediator.Object);
+            handler = new TaskStatusChangeHandler(Context, mediator.Object);
         }
 
         protected override void LoadTestData()
         {
-            var context = ServiceProvider.GetService<AllReadyContext>();
             var htb = new Organization
             {
                 Name = "Humanitarian Toolbox",
@@ -57,18 +56,11 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             var username1 = $"blah@1.com";
 
             var user1 = new ApplicationUser { UserName = username1, Email = username1, EmailConfirmed = true };
-            context.Users.Add(user1);
+            Context.Users.Add(user1);
 
             htb.Campaigns.Add(firePrev);
-            context.Organizations.Add(htb);
-            context.Events.Add(queenAnne);
-
-            var eventSignups = new List<EventSignup>
-            {
-                new EventSignup { Event = queenAnne, User = user1, SignupDateTime = DateTime.UtcNow }
-            };
-
-            context.EventSignup.AddRange(eventSignups);
+            Context.Organizations.Add(htb);
+            Context.Events.Add(queenAnne);
 
             var newTask = new AllReadyTask
             {
@@ -86,9 +78,9 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
                 User = user1
             });
 
-            context.Tasks.Add(newTask);
+            Context.Tasks.Add(newTask);
 
-            context.SaveChanges();
+            Context.SaveChanges();
         }
 
         protected async Task InitStatus(TaskStatus status)
@@ -98,12 +90,12 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             await Context.SaveChangesAsync();
         }
 
-        protected TaskStatusChangeCommandAsync CreateCommand(TaskStatus status, string description = "")
+        protected TaskStatusChangeCommand CreateCommand(TaskStatus status, string description = "")
         {
             var user = Context.Users.First();
             var task = Context.Tasks.First();
 
-            return new TaskStatusChangeCommandAsync
+            return new TaskStatusChangeCommand
             {
                 UserId = user.Id,
                 TaskId = task.Id,
@@ -112,12 +104,12 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             };
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerAssignedTask()
         {
             var task = Context.Tasks.First();
             var user = Context.Users.First();
-            var command = new TaskStatusChangeCommandAsync
+            var command = new TaskStatusChangeCommand
             {
                 TaskId = task.Id,
                 UserId = user.Id,
@@ -134,12 +126,12 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             taskSignup.StatusDescription.ShouldBe(command.TaskStatusDescription);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerAcceptsTaskFromAssignedStatus()
         {
             var task = Context.Tasks.First();
             var user = Context.Users.First();
-            var command = new TaskStatusChangeCommandAsync
+            var command = new TaskStatusChangeCommand
             {
                 TaskId = task.Id,
                 UserId = user.Id,
@@ -156,7 +148,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             taskSignup.StatusDescription.ShouldBe(command.TaskStatusDescription);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerAcceptsTaskFromCanNotCompleteStatus()
         {
             var taskSignup = Context.TaskSignups.First();
@@ -165,7 +157,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
 
             var task = Context.Tasks.First();
             var user = Context.Users.First();
-            var command = new TaskStatusChangeCommandAsync
+            var command = new TaskStatusChangeCommand
             {
                 TaskId = task.Id,
                 UserId = user.Id,
@@ -183,7 +175,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             taskSignup.StatusDescription.ShouldBe(command.TaskStatusDescription);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerAcceptsTaskFromCompletedStatus()
         {
             var taskSignup = Context.TaskSignups.First();
@@ -192,7 +184,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
 
             var task = Context.Tasks.First();
             var user = Context.Users.First();
-            var command = new TaskStatusChangeCommandAsync
+            var command = new TaskStatusChangeCommand
             {
                 TaskId = task.Id,
                 UserId = user.Id,
@@ -210,7 +202,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             taskSignup.StatusDescription.ShouldBe(command.TaskStatusDescription);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerAcceptsTaskFromAcceptedStatusShouldThrow()
         {
             await InitStatus(TaskStatus.Accepted);
@@ -218,7 +210,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerAcceptsTaskFromRejectedStatusShouldThrow()
         {
             await InitStatus(TaskStatus.Rejected);
@@ -226,12 +218,12 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerRejectsTask()
         {
             var task = Context.Tasks.First();
             var user = Context.Users.First();
-            var command = new TaskStatusChangeCommandAsync
+            var command = new TaskStatusChangeCommand
             {
                 TaskId = task.Id,
                 UserId = user.Id,
@@ -248,7 +240,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             taskSignup.StatusDescription.ShouldBe(command.TaskStatusDescription);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerRejectsTaskFromAcceptedStatusShouldThrow()
         {
             await InitStatus(TaskStatus.Accepted);
@@ -256,7 +248,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerRejectsTaskFromRejectedStatusShouldThrow()
         {
             await InitStatus(TaskStatus.Rejected);
@@ -264,7 +256,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerRejectsTaskFromCompletedStatusShouldThrow()
         {
             await InitStatus(TaskStatus.Completed);
@@ -272,7 +264,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerRejectsTaskFromCanNotCompleteStatusShouldThrow()
         {
             await InitStatus(TaskStatus.CanNotComplete);
@@ -280,7 +272,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerCompletesTaskFromAcceptedStatus()
         {
             var taskSignup = Context.TaskSignups.First();
@@ -289,7 +281,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
 
             var task = Context.Tasks.First();
             var user = Context.Users.First();
-            var command = new TaskStatusChangeCommandAsync
+            var command = new TaskStatusChangeCommand
             {
                 TaskId = task.Id,
                 UserId = user.Id,
@@ -306,13 +298,13 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             taskSignup.StatusDescription.ShouldBe(command.TaskStatusDescription);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerCompletesTaskFromAssignedStatus()
         {
             var dateTime = DateTime.UtcNow;
             var task = Context.Tasks.First();
             var user = Context.Users.First();
-            var command = new TaskStatusChangeCommandAsync
+            var command = new TaskStatusChangeCommand
             {
                 TaskId = task.Id,
                 UserId = user.Id,
@@ -328,10 +320,10 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             taskSignup.Task.Id.ShouldBe(command.TaskId);
             taskSignup.User.Id.ShouldBe(command.UserId);
             taskSignup.StatusDescription.ShouldBe(command.TaskStatusDescription);
-            taskSignup.StatusDateTimeUtc.ShouldBe(dateTime, TimeSpan.FromSeconds(1));
+            taskSignup.StatusDateTimeUtc.ShouldBe(dateTime, TimeSpan.FromSeconds(3));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerCompletesTaskFromRejectedStatusShouldThrow()
         {
             await InitStatus(TaskStatus.Rejected);
@@ -339,7 +331,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerCompletesTaskFromCompletedStatusShouldThrow()
         {
             await InitStatus(TaskStatus.Completed);
@@ -347,7 +339,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerCompletesTaskFromCanNotCompleteStatusShouldThrow()
         {
             await InitStatus(TaskStatus.CanNotComplete);
@@ -355,7 +347,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerCannotCompleteTaskFromAcceptedStatus()
         {
             var taskSignup = Context.TaskSignups.First();
@@ -364,7 +356,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
 
             var task = Context.Tasks.First();
             var user = Context.Users.First();
-            var command = new TaskStatusChangeCommandAsync
+            var command = new TaskStatusChangeCommand
             {
                 TaskId = task.Id,
                 UserId = user.Id,
@@ -381,13 +373,13 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             taskSignup.StatusDescription.ShouldBe(command.TaskStatusDescription);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerCannotCompleteTaskFromAssignedStatus()
         {
             var dateTime = DateTime.UtcNow;
             var user = Context.Users.First();
             var task = Context.Tasks.First();
-            var command = new TaskStatusChangeCommandAsync
+            var command = new TaskStatusChangeCommand
             {
                 TaskId = task.Id,
                 UserId = user.Id,
@@ -406,7 +398,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             taskSignup.StatusDateTimeUtc.ShouldBe(dateTime, TimeSpan.FromSeconds(1));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerCannotCompleteTaskFromRejectedStatusShouldThrow()
         {
             await InitStatus(TaskStatus.Rejected);
@@ -414,7 +406,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerCannotCompleteTaskFromCompletedStatusShouldThrow()
         {
             await InitStatus(TaskStatus.Completed);
@@ -422,7 +414,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task VolunteerCannotCompleteTaskFromCanNotCompleteStatusShouldThrow()
         {
             await InitStatus(TaskStatus.CanNotComplete);
@@ -430,7 +422,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public void ShouldThrowIfTaskDoesNotExist()
         {
             var command = CreateCommand(TaskStatus.Accepted, "User accepted task");
@@ -438,7 +430,7 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Tasks
             Should.Throw<Exception>(() => handler.Handle(command));
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public void ShouldThrowIfTaskSignupDoesNotExist()
         {
             var command = CreateCommand(TaskStatus.Completed, "User completed task");

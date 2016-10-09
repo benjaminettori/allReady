@@ -1,32 +1,34 @@
 ﻿using AllReady.Areas.Admin.Features.Events;
-using AllReady.Areas.Admin.Models;
 using AllReady.Models;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AllReady.Areas.Admin.ViewModels.Event;
 using Xunit;
 
 namespace AllReady.UnitTest.Areas.Admin.Features.Events
 {
     public class DuplicateEventCommandHandlerShould : InMemoryContextTest
     {
-        [Fact(Skip = "RTM Broken Tests")]
+        private const int EventToDuplicateId = 1;
+
+        [Fact]
         public async Task CreateANewEventEntity()
         {
-            var eventId = await DuplicateEvent(new DuplicateEventModel() { Id = EVENT_TO_DUPLICATE_ID });
+            var eventId = await DuplicateEvent(new DuplicateEventViewModel { Id = EventToDuplicateId });
             var sut = await GetEvent(eventId);
 
             Assert.Equal(2, sut.Id);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task CopyEventPropertyValuesToTheNewEvent()
         {
-            var duplicateEventModel = new DuplicateEventModel()
+            var duplicateEventModel = new DuplicateEventViewModel
             {
-                Id = EVENT_TO_DUPLICATE_ID,
+                Id = EventToDuplicateId,
                 Name = "Name",
                 Description = "Description",
                 StartDateTime = new DateTimeOffset(2016, 1, 1, 0, 0, 0, new TimeSpan()),
@@ -41,7 +43,6 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
             Assert.Equal("Name", sut.Name);
             Assert.Equal("Description", sut.Description);
             Assert.Equal(EventType.Itinerary, sut.EventType);
-            Assert.Equal(10, sut.NumberOfVolunteersRequired);
             Assert.Equal(new DateTimeOffset(2016, 1, 1, 0, 0, 0, new TimeSpan()), sut.StartDateTime);
             Assert.Equal(new DateTimeOffset(2016, 1, 31, 0, 0, 0, new TimeSpan()), sut.EndDateTime);
             Assert.Equal("Organizer", sut.Organizer.Id);
@@ -50,19 +51,19 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
             Assert.Equal(true, sut.IsAllowWaitList);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task CreateANewLocationEntity()
         {
-            var eventId = await DuplicateEvent(new DuplicateEventModel() { Id = EVENT_TO_DUPLICATE_ID });
+            var eventId = await DuplicateEvent(new DuplicateEventViewModel { Id = EventToDuplicateId });
             var sut = await GetEvent(eventId);
 
             Assert.Equal(2, sut.Location.Id);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task CopyLocationPropertyValuesToTheNewLocation()
         {
-            var eventId = await DuplicateEvent(new DuplicateEventModel() { Id = EVENT_TO_DUPLICATE_ID });
+            var eventId = await DuplicateEvent(new DuplicateEventViewModel { Id = EventToDuplicateId });
             var @event = await GetEvent(eventId);
             var sut = @event.Location;
 
@@ -76,11 +77,10 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
             Assert.Equal("Country", sut.Country);
         }
 
-
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task CreateNewTaskEntities()
         {
-            var eventId = await DuplicateEvent(new DuplicateEventModel() { Id = EVENT_TO_DUPLICATE_ID });
+            var eventId = await DuplicateEvent(new DuplicateEventViewModel { Id = EventToDuplicateId });
             var @event = await GetEvent(eventId);
             var sut = @event.Tasks.OrderBy(t => t.Id).ToList();
 
@@ -89,12 +89,12 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
             Assert.Equal(4, sut[1].Id);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task MaintainOffsetBetweenTaskStartTimeAndEventStartTimeInNewTask()
         {
-            var duplicateEventModel = new DuplicateEventModel()
+            var duplicateEventModel = new DuplicateEventViewModel
             {
-                Id = EVENT_TO_DUPLICATE_ID,
+                Id = EventToDuplicateId,
                 Name = "Name",
                 Description = "Description",
                 StartDateTime = new DateTimeOffset(2016, 2, 1, 0, 0, 0, new TimeSpan()),
@@ -109,12 +109,12 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
             Assert.Equal(new DateTimeOffset(2016, 2, 2, 10, 0, 0, new TimeSpan()), sut[1].StartDateTime);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task MaintainTaskDurationInNewTask()
         {
-            var duplicateEventModel = new DuplicateEventModel()
+            var duplicateEventModel = new DuplicateEventViewModel
             {
-                Id = EVENT_TO_DUPLICATE_ID,
+                Id = EventToDuplicateId,
                 Name = "Name",
                 Description = "Description",
                 StartDateTime = new DateTimeOffset(2016, 2, 1, 0, 0, 0, new TimeSpan()),
@@ -129,12 +129,12 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
             Assert.Equal(new TimeSpan(6, 0, 0), sut[1].EndDateTime - sut[1].StartDateTime);
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task CreateNewTasksWithoutCopyingAssignedVolunteers()
         {
-            var duplicateEventModel = new DuplicateEventModel()
+            var duplicateEventModel = new DuplicateEventViewModel
             {
-                Id = EVENT_TO_DUPLICATE_ID,
+                Id = EventToDuplicateId,
                 Name = "Name",
                 Description = "Description",
                 StartDateTime = new DateTimeOffset(2016, 2, 1, 0, 0, 0, new TimeSpan()),
@@ -149,10 +149,10 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
             Assert.Equal(0, sut[1].AssignedVolunteers.Count());
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task CreateNewTasksWithTheSameRequiredSkills()
         {
-            var eventId = await DuplicateEvent(new DuplicateEventModel() { Id = EVENT_TO_DUPLICATE_ID });
+            var eventId = await DuplicateEvent(new DuplicateEventViewModel { Id = EventToDuplicateId });
             var @event = await GetEvent(eventId);
             var sut = @event.Tasks.OrderBy(t => t.StartDateTime).ToList();
 
@@ -162,19 +162,10 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
             Assert.Equal(0, sut[1].RequiredSkills.Count());
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
-        public async Task CreateNewEventWithoutCopyingUsersSignedUp()
-        {
-            var eventId = await DuplicateEvent(new DuplicateEventModel() { Id = EVENT_TO_DUPLICATE_ID });
-            var sut = await GetEvent(eventId);
-
-            Assert.Equal(0, sut.UsersSignedUp.Count());
-        }
-
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task CreateNewEventWithTheSameRequiredSkills()
         {
-            var eventId = await DuplicateEvent(new DuplicateEventModel() { Id = EVENT_TO_DUPLICATE_ID });
+            var eventId = await DuplicateEvent(new DuplicateEventViewModel { Id = EventToDuplicateId });
             var @event = await GetEvent(eventId);
             var sut = @event.RequiredSkills.OrderBy(es => es.Skill.Name).ToList();
 
@@ -182,9 +173,6 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
             Assert.Equal("Skill One", sut[0].Skill.Name);
             Assert.Equal("Skill Two", sut[1].Skill.Name);
         }
-
-        #region Helpers
-        const int EVENT_TO_DUPLICATE_ID = 1;
 
         async Task<Event> GetEvent(int eventId)
         {
@@ -198,31 +186,29 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
                 .SingleAsync(e => e.Id == eventId);
         }
 
-        async Task<int> DuplicateEvent(DuplicateEventModel duplicateEventModel)
+        async Task<int> DuplicateEvent(DuplicateEventViewModel duplicateEventModel)
         {
-            var command = new DuplicateEventCommand() { DuplicateEventModel = duplicateEventModel };
+            var command = new DuplicateEventCommand { DuplicateEventModel = duplicateEventModel };
             var handler = new DuplicateEventCommandHandler(Context);
             return await handler.Handle(command);
         }
 
         protected override void LoadTestData()
         {
-            var skillOne = new Skill() { Name = "Skill One" };
-            var skillTwo = new Skill() { Name = "Skill Two" };
+            var skillOne = new Skill { Name = "Skill One" };
+            var skillTwo = new Skill { Name = "Skill Two" };
 
             Context.AddRange(skillOne, skillTwo);
 
-
-            var @event = new Event()
+            var @event = new Event
             {
                 Campaign = new Campaign(),
                 Name = "Name",
                 Description = "Description",
                 EventType = EventType.Itinerary,
-                NumberOfVolunteersRequired = 10,
                 StartDateTime = new DateTimeOffset(2016, 1, 1, 0, 0, 0, new TimeSpan()),
                 EndDateTime = new DateTimeOffset(2016, 1, 31, 0, 0, 0, new TimeSpan()),
-                Location = new Location()
+                Location = new Location
                 {
                     Address1 = "Address1",
                     Address2 = "Address2",
@@ -233,45 +219,40 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
                     PhoneNumber = "PhoneNumber",
                     Country = "Country"
                 },
-                Tasks = new List<AllReadyTask>()
+                Tasks = new List<AllReadyTask>
                 {
-                    new AllReadyTask()
+                    new AllReadyTask
                     {
                         StartDateTime = new DateTimeOffset(2016, 1, 1, 9, 0, 0, new TimeSpan()),
                         EndDateTime = new DateTimeOffset(2016, 1, 1, 17, 0, 0, new TimeSpan()),
-                        AssignedVolunteers = new List<TaskSignup>()
+                        AssignedVolunteers = new List<TaskSignup>
                         {
                             new TaskSignup(),
                             new TaskSignup()
                         },
-                        RequiredSkills = new List<TaskSkill>()
+                        RequiredSkills = new List<TaskSkill>
                         {
-                            new TaskSkill() { Skill = skillOne },
-                            new TaskSkill() { Skill = skillTwo },
+                            new TaskSkill { Skill = skillOne },
+                            new TaskSkill { Skill = skillTwo },
                         },
                     },
-                    new AllReadyTask()
+                    new AllReadyTask
                     {
                         StartDateTime = new DateTimeOffset(2016, 1, 2, 10, 0, 0, new TimeSpan()),
                         EndDateTime = new DateTimeOffset(2016, 1, 2, 16, 0, 0, new TimeSpan()),
-                        AssignedVolunteers = new List<TaskSignup>()
+                        AssignedVolunteers = new List<TaskSignup>
                         {
                             new TaskSignup(),
                             new TaskSignup()
                         }
                     },
                 },
-                UsersSignedUp = new List<EventSignup>()
-                {
-                    new EventSignup(),
-                    new EventSignup(),
-                },
-                Organizer = new ApplicationUser() { Id = "Organizer" },
+                Organizer = new ApplicationUser { Id = "Organizer" },
                 ImageUrl = "ImageUrl",
-                RequiredSkills = new List<EventSkill>()
+                RequiredSkills = new List<EventSkill>
                 {
-                    new EventSkill() { Skill = skillOne },
-                    new EventSkill() { Skill = skillTwo },
+                    new EventSkill { Skill = skillOne },
+                    new EventSkill { Skill = skillTwo },
                 },
                 IsLimitVolunteers = false,
                 IsAllowWaitList = true
@@ -284,6 +265,5 @@ namespace AllReady.UnitTest.Areas.Admin.Features.Events
             Context.SaveChanges();
 
         }
-        #endregion
     }
 }

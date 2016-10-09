@@ -10,8 +10,8 @@ namespace AllReady.UnitTest.Features.Login
     {
         protected override void LoadTestData()
         {
-            var username1 = $"bobloblaw@randomdomain.com";
-            var username2 = $"someonelse@otherdomain.com";
+            const string username1 = "bobloblaw@randomdomain.com";
+            const string username2 = "someonelse@otherdomain.com";
 
             var user1 = new ApplicationUser { UserName = username1, Email = username1, EmailConfirmed = true, NormalizedUserName =  username1.ToUpperInvariant() };
             var user2 = new ApplicationUser { UserName = username2, Email = username2, EmailConfirmed = true, NormalizedUserName = username2.ToUpperInvariant() };
@@ -20,7 +20,7 @@ namespace AllReady.UnitTest.Features.Login
             Context.SaveChanges();
         }
 
-        [Fact(Skip = "RTM Broken Tests")]
+        [Fact]
         public async Task QueryUserThatExists()
         {
             var queryHandler = new ApplicationUserQueryHandler(Context);

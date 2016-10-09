@@ -1,28 +1,35 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using AllReady.Models;
 using AllReady.ViewModels.Event;
-using AllReady.ViewModels.Shared;
 using AllReady.ViewModels.Task;
 using MediatR;
-using System.Linq;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using TaskSignupViewModel = AllReady.ViewModels.Shared.TaskSignupViewModel;
 
-namespace AllReady.Features.Event
+namespace AllReady.Features.Events
 {
-    public class ShowEventQueryHandler : IRequestHandler<ShowEventQuery, EventViewModel>
+    public class ShowEventQueryHandler : IAsyncRequestHandler<ShowEventQuery, EventViewModel>
     {
-        private readonly IAllReadyDataAccess _dataAccess;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly AllReadyContext _context;
 
-        public ShowEventQueryHandler(IAllReadyDataAccess dataAccess, UserManager<ApplicationUser> userManager)
+        public ShowEventQueryHandler(AllReadyContext context)
         {
-            _dataAccess = dataAccess;
-            _userManager = userManager;
+            _context = context;
         }
 
-        public EventViewModel Handle(ShowEventQuery message)
+        public async Task<EventViewModel> Handle(ShowEventQuery message)
         {
-            var @event = _dataAccess.GetEvent(message.EventId);
+            var @event = await _context.Events
+                .Include(a => a.Location)
+                .Include(a => a.Campaign).ThenInclude(c => c.ManagingOrganization)
+                .Include(a => a.RequiredSkills).ThenInclude(rs => rs.Skill).ThenInclude(s => s.ParentSkill)
+                .Include(a => a.Tasks).ThenInclude(t => t.AssignedVolunteers).ThenInclude(tu => tu.User)
+                .Include(a => a.Tasks).ThenInclude(t => t.RequiredSkills).ThenInclude(ts => ts.Skill)
+                .SingleOrDefaultAsync(a => a.Id == message.EventId)
+                .ConfigureAwait(false);
+
             if (@event == null || @event.Campaign.Locked)
             {
                 return null;
@@ -30,26 +37,27 @@ namespace AllReady.Features.Event
 
             var eventViewModel = new EventViewModel(@event);
 
-            var userId = _userManager.GetUserId(message.User);
-            var appUser = _dataAccess.GetUser(userId);
+            ApplicationUser applicationUser = null;
 
-            eventViewModel.UserId = userId;
-            eventViewModel.UserSkills = appUser?.AssociatedSkills?.Select(us => new SkillViewModel(us.Skill)).ToList();
-            eventViewModel.IsUserVolunteeredForEvent = _dataAccess.GetEventSignups(eventViewModel.Id, userId).Any();
+            if (!string.IsNullOrEmpty(message.UserId))
+            {
+                applicationUser = await _context.Users.SingleOrDefaultAsync(u => u.Id == message.UserId).ConfigureAwait(false);
 
-            var assignedTasks = @event.Tasks.Where(t => t.AssignedVolunteers.Any(au => au.User.Id == userId)).ToList();
-            eventViewModel.UserTasks = new List<TaskViewModel>(assignedTasks.Select(data => new TaskViewModel(data, userId)).OrderBy(task => task.StartDateTime));
+                eventViewModel.UserId = message.UserId;
+                eventViewModel.UserSkills = applicationUser?.AssociatedSkills?.Select(us => new SkillViewModel(us.Skill)).ToList();
 
-            var unassignedTasks = @event.Tasks.Where(t => t.AssignedVolunteers.All(au => au.User.Id != userId)).ToList();
-            eventViewModel.Tasks = new List<TaskViewModel>(unassignedTasks.Select(data => new TaskViewModel(data, userId)).OrderBy(task => task.StartDateTime));
+                var assignedTasks = @event.Tasks.Where(t => t.AssignedVolunteers.Any(au => au.User.Id == message.UserId)).ToList();
+                eventViewModel.UserTasks = new List<TaskViewModel>(assignedTasks.Select(data => new TaskViewModel(data, message.UserId)).OrderBy(task => task.StartDateTime));
 
-            eventViewModel.SignupModel = new EventSignupViewModel
+                var unassignedTasks = @event.Tasks.Where(t => t.AssignedVolunteers.All(au => au.User.Id != message.UserId)).ToList();
+                eventViewModel.Tasks = new List<TaskViewModel>(unassignedTasks.Select(data => new TaskViewModel(data, message.UserId)).OrderBy(task => task.StartDateTime));
+            }
+
+            eventViewModel.SignupModel = new TaskSignupViewModel
             {
                 EventId = eventViewModel.Id,
-                UserId = userId,
-                Name = appUser.Name,
-                PreferredEmail = appUser.Email,
-                PreferredPhoneNumber = appUser.PhoneNumber
+                UserId = message.UserId,
+                Name = applicationUser?.Name
             };
 
             return eventViewModel;

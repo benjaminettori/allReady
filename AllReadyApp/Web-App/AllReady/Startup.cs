@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using AllReady.Areas.Admin.Models.Validators;
+using AllReady.Areas.Admin.ViewModels.Validators;
+using AllReady.Areas.Admin.ViewModels.Validators.Task;
 using AllReady.Controllers;
 using AllReady.DataAccess;
 using AllReady.Models;
+using AllReady.Providers;
+using AllReady.Providers.ExternalUserInformationProviders;
+using AllReady.Providers.ExternalUserInformationProviders.Providers;
 using AllReady.Security;
 using AllReady.Services;
 using Autofac;
@@ -21,6 +25,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.PlatformAbstractions;
 using AllReady.Security.Middleware;
+using Newtonsoft.Json.Serialization;
+using Microsoft.AspNetCore.Cors.Infrastructure;
+using Geocoding;
+using Geocoding.Google;
 
 namespace AllReady
 {
@@ -38,12 +46,17 @@ namespace AllReady
 
             if (env.IsDevelopment())
             {
-            // This reads the configuration keys from the secret store.
-            // For more details on using the user secret store see http://go.microsoft.com/fwlink/?LinkID=532709
-            builder.AddUserSecrets();
+                // This reads the configuration keys from the secret store.
+                // For more details on using the user secret store see http://go.microsoft.com/fwlink/?LinkID=532709
+                builder.AddUserSecrets();
 
-            // This will push telemetry data through Application Insights pipeline faster, allowing you to view results immediately.
-            builder.AddApplicationInsightsSettings(developerMode: true);
+                // This will push telemetry data through Application Insights pipeline faster, allowing you to view results immediately.
+                builder.AddApplicationInsightsSettings(developerMode: true);
+            }
+            else if (env.IsStaging() || env.IsProduction())
+            {
+                // This will push telemetry data through Application Insights pipeline faster, allowing you to view results immediately.
+                builder.AddApplicationInsightsSettings(developerMode: false);
             }
 
             Configuration = builder.Build();
@@ -56,6 +69,18 @@ namespace AllReady
         // This method gets called by the runtime. Use this method to add services to the container.
         public IServiceProvider ConfigureServices(IServiceCollection services)
         {
+            //Add CORS support.
+            // Must be first to avoid OPTIONS issues when calling from Angular/Browser
+            var corsBuilder = new CorsPolicyBuilder();
+            corsBuilder.AllowAnyHeader();
+            corsBuilder.AllowAnyMethod();
+            corsBuilder.AllowAnyOrigin();
+            corsBuilder.AllowCredentials();
+            services.AddCors(options =>
+            {
+                options.AddPolicy("allReady", corsBuilder.Build());
+            });
+
             // Add Application Insights data collection services to the services container.
             services.AddApplicationInsightsTelemetry(Configuration);
 
@@ -67,17 +92,7 @@ namespace AllReady
             services.Configure<EmailSettings>(Configuration.GetSection("Email"));
             services.Configure<SampleDataSettings>(Configuration.GetSection("SampleData"));
             services.Configure<GeneralSettings>(Configuration.GetSection("General"));
-
-            // Add CORS support
-            services.AddCors(options =>
-            {
-            options.AddPolicy("allReady",
-                builder => builder.AllowAnyOrigin()
-                            .AllowAnyHeader()
-                            .AllowAnyMethod()
-                            .AllowCredentials()
-                );
-            });
+            services.Configure<TwitterAuthenticationSettings>(Configuration.GetSection("Authentication:Twitter"));
 
             // Add Identity services to the services container.
             services.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -99,7 +114,9 @@ namespace AllReady
             });
 
             // Add MVC services to the services container.
-            services.AddMvc();
+            // config add to get passed Angular failing on Options request when logging in.
+            services.AddMvc().AddJsonOptions(options =>
+                options.SerializerSettings.ContractResolver = new DefaultContractResolver());
 
             // configure IoC support
             var container = CreateIoCContainer(services);
@@ -113,15 +130,23 @@ namespace AllReady
             services.AddSingleton((x) => Configuration);
             services.AddTransient<IEmailSender, AuthMessageSender>();
             services.AddTransient<ISmsSender, AuthMessageSender>();
-            services.AddTransient<IAllReadyDataAccess, AllReadyDataAccessEF7>();
             services.AddTransient<IDetermineIfATaskIsEditable, DetermineIfATaskIsEditable>();
-            services.AddTransient<IValidateEventDetailModels, EventEditModelValidator>();
-            services.AddTransient<ITaskSummaryModelValidator, TaskSummaryModelValidator>();
+            services.AddTransient<IValidateEventEditViewModels, EventEditViewModelValidator>();
+            services.AddTransient<ITaskEditViewModelValidator, TaskEditViewModelValidator>();
             services.AddTransient<IItineraryEditModelValidator, ItineraryEditModelValidator>();
             services.AddTransient<IOrganizationEditModelValidator, OrganizationEditModelValidator>();
+            services.AddTransient<IRedirectAccountControllerRequests, RedirectAccountControllerRequests>();
+            services.AddTransient<IConvertDateTimeOffset, DateTimeOffsetConverter>();
             services.AddSingleton<IImageService, ImageService>();
-            //services.AddSingleton<GeoService>();
             services.AddTransient<SampleDataGenerator>();
+
+            if (Configuration["Geocoding:EnableGoogleGeocodingService"] == "true")
+            {
+                //This setting is false by default. To enable Google geocoding you will
+                //need to override this setting in your user secrets or env vars.
+                //Visit https://developers.google.com/maps/documentation/geocoding/get-api-key to get a free standard usage API key
+                services.AddSingleton<IGeocoder>(new GoogleGeocoder(Configuration["Geocoding:GoogleGeocodingApiKey"]));
+            }
 
             if (Configuration["Data:Storage:EnableAzureQueueService"] == "true")
             {
@@ -136,7 +161,6 @@ namespace AllReady
             }
 
             var containerBuilder = new ContainerBuilder();
-
             containerBuilder.RegisterSource(new ContravariantRegistrationSource());
             containerBuilder.RegisterAssemblyTypes(typeof(IMediator).Assembly).AsImplementedInterfaces();
             containerBuilder.RegisterAssemblyTypes(typeof(Startup).Assembly).AsImplementedInterfaces();
@@ -152,6 +176,13 @@ namespace AllReady
                 return t => (IEnumerable<object>)c.Resolve(typeof(IEnumerable<>).MakeGenericType(t));
             });
 
+            //ExternalUserInformationProviderFactory registration
+            containerBuilder.RegisterType<TwitterExternalUserInformationProvider>().Named<IProvideExternalUserInformation>("Twitter");
+            containerBuilder.RegisterType<GoogleExternalUserInformationProvider>().Named<IProvideExternalUserInformation>("Google");
+            containerBuilder.RegisterType<MicrosoftAndFacebookExternalUserInformationProvider>().Named<IProvideExternalUserInformation>("Microsoft");
+            containerBuilder.RegisterType<MicrosoftAndFacebookExternalUserInformationProvider>().Named<IProvideExternalUserInformation>("Facebook");
+            containerBuilder.RegisterType<ExternalUserInformationProviderFactory>().As<IExternalUserInformationProviderFactory>();
+
             //Populate the container with services that were previously registered
             containerBuilder.Populate(services);
 
@@ -160,9 +191,12 @@ namespace AllReady
         }
 
         // Configure is called after ConfigureServices is called.
-        public async void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, SampleDataGenerator sampleData, AllReadyContext context, 
+        public async void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, SampleDataGenerator sampleData, AllReadyContext context,
             IConfiguration configuration)
         {
+            // Put first to avoid issues with OPTIONS when calling from Angular/Browser.  
+            app.UseCors("allReady");
+
             // todo: in RC update we can read from a logging.json config file
             loggerFactory.AddConsole((category, level) =>
             {
@@ -186,9 +220,6 @@ namespace AllReady
                 });
             }
 
-            // CORS support
-            app.UseCors("allReady");
-
             // Configure the HTTP request pipeline.
             var usCultureInfo = new CultureInfo("en-US");
             app.UseRequestLocalization(new RequestLocalizationOptions
@@ -204,6 +235,11 @@ namespace AllReady
             if (env.IsDevelopment())
             {
                 app.UseBrowserLink();
+                app.UseDeveloperExceptionPage();
+                app.UseDatabaseErrorPage();
+            }
+            else if (env.IsStaging())
+            {
                 app.UseDeveloperExceptionPage();
                 app.UseDatabaseErrorPage();
             }
@@ -256,7 +292,8 @@ namespace AllReady
 
                 app.UseMicrosoftAccountAuthentication(options);
             }
-
+            //TODO: mgmccarthy: working on getting email from Twitter
+            //http://www.bigbrainintelligence.com/Post/get-users-email-address-from-twitter-oauth-ap
             if (Configuration["Authentication:Twitter:ConsumerKey"] != null)
             {
                 var options = new TwitterOptions

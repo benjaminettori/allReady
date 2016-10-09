@@ -1,5 +1,5 @@
 @using System.Threading.Tasks
-@model  EventEditModel
+@model AllReady.Areas.Admin.ViewModels.Event.EventEditViewModel
 @inject AllReady.Services.ISelectListService SelectListService
 
 
@@ -25,31 +25,35 @@
 <div class="row">
     <div class="col-12">
         <ol class="breadcrumb">
-            <li><a asp-controller="Campaign" asp-action="Index" asp-route-area="Admin">Campaigns</a></li>
-            <li><a asp-controller="Campaign" asp-action="Details" asp-route-id="@Model.CampaignId" asp-route-area="Admin">@Model.CampaignName</a></li>
+            <li><a asp-controller="Campaign" asp-action="Index" asp-area="Admin">Campaigns</a></li>
+            <li><a asp-controller="Campaign" asp-action="Details" asp-route-id="@Model.CampaignId" asp-area="Admin">@Model.CampaignName</a></li>
             @if (isEdit)
             {
-                <li><a asp-controller="Event" asp-action="Details" asp-route-id="@Model.Id" asp-route-area="Admin">@Model.Name</a></li>
+                <li><a asp-controller="Event" asp-action="Details" asp-route-id="@Model.Id" asp-area="Admin">@Model.Name</a></li>
                 <li>Edit</li>
             }
             else
             {
                 <li>Create New Event</li>
             }
-            
+
         </ol>
     </div>
 </div>
 
 <h2>@ViewBag.Title</h2>
 
-<form asp-controller="Event" asp-route-area="Admin" method="post" enctype="multipart/form-data">
+<form asp-controller="Event" asp-area="Admin" method="post" enctype="multipart/form-data">
 
     <div class="form-horizontal">
         <hr />
         <div class="form-horizontal col-lg-6 pull-left">
             <div asp-validation-summary="All" class="text-danger"></div>
-            <input asp-for="Id" type="hidden" />
+            @if (isEdit)
+            {
+                <input type="hidden" asp-for="Id" />
+                <input type="hidden" asp-for="ImageUrl" />
+            }
             <input asp-for="CampaignId" type="hidden" />
             <input asp-for="CampaignName" type="hidden" />
             <input asp-for="TimeZoneId" type="hidden" />
@@ -65,7 +69,7 @@
             <div class="form-group">
                 <label asp-for="Description" class="control-label col-md-2"></label>
                 <div class="col-md-10">
-                    <textarea asp-for="Description" class="form-control"></textarea>
+                    <input asp-for="Description" class="form-control"></input>
                     <span asp-validation-for="Description" class="text-danger"></span>
                 </div>
             </div>
@@ -86,14 +90,6 @@
                 </div>
             </div>
             <div class="form-group">
-                <label asp-for="NumberOfVolunteersRequired" class="control-label col-md-2"></label>
-                <div class="col-md-10">
-                    <input asp-for="NumberOfVolunteersRequired" class="form-control" />
-                    <span asp-validation-for="NumberOfVolunteersRequired" class="text-danger"></span>
-                </div>
-            </div>
-
-            <div class="form-group">
                 <label asp-for="IsLimitVolunteers" class="control-label col-md-2"></label>
                 <div class="col-md-10">
                     <input asp-for="IsLimitVolunteers" type="checkbox" class="form-control" />
@@ -103,15 +99,15 @@
 
             <!-- Uncomment this code when wait list functionality is completed -->
             @*@{
-                    var displaySetting = Model.IsLimitVolunteers ? "" : "style=display:none";
-                }
-                <div id="IsAllowWaitListControl" class="form-group" @displaySetting>
-                    <label asp-for="IsAllowWaitList" class="control-label col-md-2"></label>
-                    <div class="col-md-10">
-                        <input asp-for="IsAllowWaitList" type="checkbox" class="form-control" />
-                        <span asp-validation-for="IsAllowWaitList" class="text-danger"></span>
-                    </div>
-                </div>*@
+                var displaySetting = Model.IsLimitVolunteers ? "" : "style=display:none";
+            }
+            <div id="IsAllowWaitListControl" class="form-group" @displaySetting>
+                <label asp-for="IsAllowWaitList" class="control-label col-md-2"></label>
+                <div class="col-md-10">
+                    <input asp-for="IsAllowWaitList" type="checkbox" class="form-control" />
+                    <span asp-validation-for="IsAllowWaitList" class="text-danger"></span>
+                </div>
+            </div>*@
 
             <div class="form-group">
                 <label asp-for="StartDateTime" class="control-label col-md-2"></label>
@@ -149,7 +145,57 @@
                     <span class="label label-danger" data-bind="visible: !requiredSkills.isValid()">@Html.DisplayNameFor(m => m.RequiredSkills) must be unique</span>
                 </div>
             </div>
-            @Html.EditorFor(m => m.Location)
+            <div class="form-group">
+                <label asp-for="Location.Address1" class="control-label col-md-2"></label>
+                <div class="col-md-10">
+                    @if (Model.EventType == EventType.Rally)
+                    {
+                        <input asp-for="Location.Address1" class="form-control  location-address1" data-val="true" data-val-required="The Address1 field is required." type="text" />
+                        <span asp-validation-for="Location.Address1" class="text-danger col-md-10" />
+
+                    }
+                    else
+                    {
+                        <input asp-for="Location.Address1" class="form-control" />
+                        <span asp-validation-for="Location.Address1" class="text-danger col-md-10" />
+                    }
+                </div>
+            </div>
+            <div class="form-group">
+                <label asp-for="Location.Address2" class="control-label col-md-2"></label>
+                <div class="col-md-10">
+                    <input asp-for="Location.Address2" class="form-control" />
+                    <span asp-validation-for="Location.Address2" class="text-danger col-md-10" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label asp-for="Location.City" class="control-label col-md-2"></label>
+                <div class="col-md-10">
+                    <input asp-for="Location.City" class="form-control" />
+                    <span asp-validation-for="Location.City" class="text-danger col-md-10" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label asp-for="Location.State" class="control-label col-md-2"></label>
+                <div class="col-md-10">
+                    <input asp-for="Location.State" class="form-control" />
+                    <span asp-validation-for="Location.State" class="text-danger col-md-10" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label asp-for="Location.PostalCode" class="control-label col-md-2"></label>
+                <div class="col-md-10">
+                    <input asp-for="Location.PostalCode" class="form-control" />
+                    <span asp-validation-for="Location.PostalCode" class="text-danger col-md-10" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label asp-for="Location.Country" class="control-label col-md-2"></label>
+                <div class="col-md-10">
+                    <input asp-for="Location.Country" class="form-control" />
+                    <span asp-validation-for="Location.Country" class="text-danger col-md-10" />
+                </div>
+            </div>
         </div>
         <div class="col-lg-6 pull-right">
             <div id="bingMap" style="position: relative"></div>
@@ -198,7 +244,7 @@
             });
 
         (function (ko, $, requiredSkills, availableSkills) {
-            
+
             function AdminEventViewModel(requiredSkills, availableSkills) {
 
                 function RequiredSkillObservable(skillModel) {

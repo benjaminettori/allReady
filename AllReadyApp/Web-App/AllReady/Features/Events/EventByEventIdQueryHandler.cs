@@ -1,20 +1,30 @@
-﻿using AllReady.Models;
+﻿using System.Threading.Tasks;
+using AllReady.Models;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
-namespace AllReady.Features.Event
+namespace AllReady.Features.Events
 {
-    public class EventByIdQueryHandler : IRequestHandler<EventByIdQuery, Models.Event>
+    public class EventByEventIdQueryHandler : IAsyncRequestHandler<EventByEventIdQuery, Event>
     {
-        private readonly IAllReadyDataAccess dataAccess;
+        private readonly AllReadyContext _context;
 
-        public EventByIdQueryHandler(IAllReadyDataAccess dataAccess)
+        public EventByEventIdQueryHandler(AllReadyContext context)
         {
-            this.dataAccess = dataAccess;
+            _context = context;
         }
 
-        public Models.Event Handle(EventByIdQuery message)
+        public async Task<Event> Handle(EventByEventIdQuery message)
         {
-            return dataAccess.GetEvent(message.EventId);
+            // TODO: can we leave off some of these .Include()?
+            return await _context.Events
+                .Include(a => a.Location)
+                .Include(a => a.Campaign).ThenInclude(c => c.ManagingOrganization)
+                .Include(a => a.RequiredSkills).ThenInclude(rs => rs.Skill).ThenInclude(s => s.ParentSkill)
+                .Include(a => a.Tasks).ThenInclude(t => t.AssignedVolunteers).ThenInclude(tu => tu.User)
+                .Include(a => a.Tasks).ThenInclude(t => t.RequiredSkills).ThenInclude(ts => ts.Skill)
+                .SingleOrDefaultAsync(a => a.Id == message.EventId)
+                .ConfigureAwait(false);
         }
     }
 }

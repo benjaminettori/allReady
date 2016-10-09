@@ -1,4 +1,5 @@
-@model AllReady.Areas.Admin.Models.CampaignSummaryModel
+@using AllReady.Security
+@model AllReady.Areas.Admin.ViewModels.Campaign.CampaignSummaryViewModel
 @inject AllReady.Services.ISelectListService SelectListService
 
 @{
@@ -7,7 +8,7 @@
     string cancelUrl;
     if (isEdit)
     {
-        ViewData["Title"] = $"Edit Campaign";
+        ViewData["Title"] = "Edit Campaign";
         actionTitle = "Save";
         cancelUrl = Url.Action("Details", "Campaign", new { area = "Admin", id = Model.Id });
     }
@@ -18,10 +19,11 @@
         cancelUrl = Url.Action("Index", "Campaign", new { area = "Admin" });
     }
 }
+
 <div class="row">
     <div class="col-12">
         <ol class="breadcrumb">
-            <li><a asp-controller="Campaign" asp-action="Index" asp-route-area="Admin">Campaigns</a></li>
+            <li><a asp-controller="Campaign" asp-action="Index" asp-area="Admin">Campaigns</a></li>
             @if (isEdit)
             {
                 <li><a href="@cancelUrl">@Model.Name</a></li>
@@ -39,23 +41,24 @@
 
 <h2>@ViewData["Title"]</h2>
 
-<form asp-controller="Campaign" asp-route-area="Admin" asp-action="Edit" method="post" enctype="multipart/form-data">
+<form asp-controller="Campaign" asp-area="Admin" asp-action="Edit" method="post" enctype="multipart/form-data">
 
-    <button type="button"
+  @if (User.IsUserType(UserType.OrgAdmin)){
+      <button type="button"
             id="btnGetContactInfo"
             class="btn btn-info"
             data-toggle="modal"
             data-target="#confirmContactModal"
             title="Copy Contact Information from Organization">
-        Copy Contact Info
-    </button>
-
+            Copy Contact Info
+      </button>
+  }
 
     <div class="form-horizontal">
         <hr />
         <div asp-validation-summary="All" class="text-danger"></div>
         @if (isEdit)
-            {
+        {
             <input type="hidden" asp-for="Id" />
             <input type="hidden" asp-for="ImageUrl" />
         }
@@ -134,7 +137,39 @@
                 @Html.DropDownListFor(model => model.OrganizationId, SelectListService.GetOrganizations(), htmlAttributes: new { @class = "form-control" })
             </div>
         </div>
+        <div class="form-group">
+            <label asp-for="Featured" class="col-md-2 control-label"></label>
+            <div class="col-md-10">
+                <input type="checkbox" asp-for="Featured" />
+                <span asp-validation-for="Featured" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="form-horizontal">
+            @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
+            {
+                <div class="form-group">
+                    <label asp-for="ImageUrl" class="col-md-2 control-label"></label>
+                    <div class="col-md-10">
+                        <img src="@Model.ImageUrl" class="img-thumbnail img-responsive col-md-4"/>
+                    </div>
+                </div>
+            }
+            <div class="form-group">
+                <label asp-for="FileUpload" class="col-md-2 control-label"></label>
+                <div class="col-md-10">
+                    <div class="form-group">
+                        <div class="col-md-10">
+                            <input type="file" asp-for="FileUpload" class="control-label col-md-4" />
+                            @*<button type="submit" class="btn col-md-1">Upload</button>*@
+                            <span asp-validation-for="FileUpload" class="text-danger col-md-12"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <h3>Location</h3>
         @Html.EditorFor(m => m.Location)
+        <h3>Primary Contact</h3>
         <div class="form-group">
             <label asp-for="PrimaryContactFirstName" class="col-md-2 control-label"></label>
             <div class="col-md-10">
@@ -163,36 +198,7 @@
                 <span asp-validation-for="PrimaryContactEmail" class="text-danger"></span>
             </div>
         </div>
-		<div class="form-group">
-			<label asp-for="Featured" class="col-md-2 control-label"></label>
-			<div class="col-md-10">
-				<input type="checkbox" asp-for="Featured" />
-				<span asp-validation-for="Featured" class="text-danger"></span>
-			</div>
-		</div>
-        <div class="form-horizontal">
-            @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
-            {
-                <div class="form-group">
-                    <div class="col-md-2">&nbsp;</div>
-                    <div class="col-md-10">
-                        <img src="@Model.ImageUrl" class="img-thumbnail img-responsive col-md-4" />
-                    </div>
-                </div>
-            }
-            <div class="form-group">
-                <label asp-for="FileUpload" class="col-md-2 control-label"></label>
-                <div class="col-md-10">
-                    <div class="form-group">
-                        <div class="col-md-10">
-                            <input type="file" asp-for="FileUpload" class="control-label col-md-4" />
-                            @*<button type="submit" class="btn col-md-1">Upload</button>*@
-                            <span asp-validation-for="FileUpload" class="text-danger col-md-12"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+
         @if (isEdit)
         {
             <input type="hidden" asp-for="CampaignImpact.Id" />
@@ -259,7 +265,6 @@
             <a href="@cancelUrl" class="btn btn-default">Cancel</a>
         </div>
     </div>
-
 </form>
 
 <div class="modal fade" id="confirmContactModal" tabindex="-1" role="dialog" aria-labelledby="modalLabel">

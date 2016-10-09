@@ -1,9 +1,8 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using System.Threading.Tasks;
-using AllReady.Areas.Admin.Models;
 using AllReady.Extensions;
 using AllReady.Models;
+using AllReady.Providers;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,11 +11,12 @@ namespace AllReady.Areas.Admin.Features.Events
     public class EditEventCommandHandler : IAsyncRequestHandler<EditEventCommand, int>
     {
         private AllReadyContext _context;
+        private readonly IConvertDateTimeOffset _dateTimeOffsetConverter;
 
-        public EditEventCommandHandler(AllReadyContext context)
+        public EditEventCommandHandler(AllReadyContext context, IConvertDateTimeOffset dateTimeOffsetConverter)
         {
             _context = context;
-
+            _dateTimeOffsetConverter = dateTimeOffsetConverter;
         }
         public async Task<int> Handle(EditEventCommand message)
         {
@@ -26,16 +26,12 @@ namespace AllReady.Areas.Admin.Features.Events
             campaignEvent.Description = message.Event.Description;
             campaignEvent.EventType = message.Event.EventType;
 
-            var timeZone = TimeZoneInfo.FindSystemTimeZoneById(message.Event.TimeZoneId);
-            var startDateTimeOffset = timeZone.GetUtcOffset(message.Event.StartDateTime);
-            campaignEvent.StartDateTime = new DateTimeOffset(message.Event.StartDateTime.Year, message.Event.StartDateTime.Month, message.Event.StartDateTime.Day, message.Event.StartDateTime.Hour, message.Event.StartDateTime.Minute, 0, startDateTimeOffset);
+            campaignEvent.StartDateTime = _dateTimeOffsetConverter.ConvertDateTimeOffsetTo(message.Event.TimeZoneId, message.Event.StartDateTime, message.Event.StartDateTime.Hour, message.Event.StartDateTime.Minute);
+            campaignEvent.EndDateTime = _dateTimeOffsetConverter.ConvertDateTimeOffsetTo(message.Event.TimeZoneId, message.Event.EndDateTime, message.Event.EndDateTime.Hour, message.Event.EndDateTime.Minute);
 
-            var endDateTimeOffset = timeZone.GetUtcOffset(message.Event.EndDateTime);
-            campaignEvent.EndDateTime = new DateTimeOffset(message.Event.EndDateTime.Year, message.Event.EndDateTime.Month, message.Event.EndDateTime.Day, message.Event.EndDateTime.Hour, message.Event.EndDateTime.Minute, 0, endDateTimeOffset);
             campaignEvent.CampaignId = message.Event.CampaignId;
             
             campaignEvent.ImageUrl = message.Event.ImageUrl;
-            campaignEvent.NumberOfVolunteersRequired = message.Event.NumberOfVolunteersRequired;
 
             if (campaignEvent.IsLimitVolunteers != message.Event.IsLimitVolunteers || campaignEvent.IsAllowWaitList != message.Event.IsAllowWaitList)
             {
@@ -43,7 +39,7 @@ namespace AllReady.Areas.Admin.Features.Events
                 campaignEvent.IsLimitVolunteers = message.Event.IsLimitVolunteers;
                 
                 // cascade values to all tasks associated with this event
-                foreach (var task in _context.Tasks.Where(task => task.Event.Id == campaignEvent.Id))
+                foreach (var task in campaignEvent.Tasks)
                 {
                     task.IsLimitVolunteers = campaignEvent.IsLimitVolunteers;
                     task.IsAllowWaitList = campaignEvent.IsAllowWaitList;
@@ -81,6 +77,7 @@ namespace AllReady.Areas.Admin.Features.Events
         {
             return await _context.Events
                 .Include(a => a.RequiredSkills)
+                .Include(a => a.Tasks)
                 .SingleOrDefaultAsync(c => c.Id == message.Event.Id)
                 .ConfigureAwait(false);
         }
